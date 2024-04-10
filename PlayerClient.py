@@ -94,11 +94,10 @@ def lobby_prompt():
             return (lobby_name, player_name, team_name, False)
 
 def move_prompt():
-    print("Enter the letter corresponding to the move you want to make:")
     option = ""
     while option not in moves.keys():
         print(
-            "Enter one of the following options to make a move:\n",
+            "Enter the letter corresponding to the move you want to make:\n",
             "    W. UP\n",
             "    A. LEFT\n",
             "    S. DOWN\n",
@@ -142,12 +141,13 @@ if __name__ == '__main__':
     client.publish("new_game", json.dumps({'lobby_name' : lobby_name,
                                            'team_name' : team_name,
                                            'player_name' : player_name}), qos=2)
-    time.sleep(2) # Wait a second to resolve sending game info
+    time.sleep(1)
 
     if creating_lobby:
         print("Waiting for other players to join...")
         input("Press enter to start the game: ")
         client.publish(f"games/{lobby_name}/start", "START", qos=2)
+        time.sleep(1)
     else:
         print("Waiting for game to start...")
         
@@ -156,16 +156,19 @@ if __name__ == '__main__':
 
     while True:
         while not next_move:
-            time.sleep(2) # Wait to be allowed to make another move
+            time.sleep(1)
         if not game_running:
             break
+        time.sleep(1) # Wait for messages to prompt the next move
         m = move_prompt()
-        client.publish(f"games/{lobby_name}/{player_name}/move", moves[m], qos=2)
         next_move = False
+        client.publish(f"games/{lobby_name}/{player_name}/move", moves[m], qos=2)
+        time.sleep(1)
         print("Waiting for all players to make a move...")
 
     if creating_lobby:
         client.publish(f"games/{lobby_name}/start", "STOP", qos=2)
+        time.sleep(1)
 
     print("Game has ended!")
 
