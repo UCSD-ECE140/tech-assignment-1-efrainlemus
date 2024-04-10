@@ -121,12 +121,12 @@ def player_move(client, topic_list, msg_payload):
 
                 # Publish player states after all movement is resolved
                 for player, _ in client.move_dict[lobby_name].values():
-                    client.publish(f'games/{lobby_name}/{player}/game_state', json.dumps(game.getGameData(player)))
+                    client.publish(f'games/{lobby_name}/{player}/game_state', json.dumps(game.getGameData(player)), qos=2)
 
                 # Clear move list
                 client.move_dict[lobby_name].clear()
                 print(game.map)
-                client.publish(f'games/{lobby_name}/scores', json.dumps(game.getScores()))
+                client.publish(f'games/{lobby_name}/scores', json.dumps(game.getScores()), qos=2)
                 if game.gameOver():
                     # Publish game over, remove game
                     publish_to_lobby(client, lobby_name, "Game Over: All coins have been collected")
@@ -157,7 +157,7 @@ def start_game(client, topic_list, msg_payload):
                 client.team_dict[lobby_name]["started"] = True
 
                 for player in game.all_players.keys():
-                    client.publish(f'games/{lobby_name}/{player}/game_state', json.dumps(game.getGameData(player)))
+                    client.publish(f'games/{lobby_name}/{player}/game_state', json.dumps(game.getGameData(player)), qos=2)
 
 
                 print(game.map)
@@ -173,7 +173,7 @@ def publish_error_to_lobby(client, lobby_name, error):
 
 
 def publish_to_lobby(client, lobby_name, msg):
-    client.publish(f"games/{lobby_name}/lobby", msg)
+    client.publish(f"games/{lobby_name}/lobby", msg, qos=2)
 
 
 dispatch = {
@@ -210,8 +210,8 @@ if __name__ == '__main__':
     client.game_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
     client.move_dict = {} # Keeps track of the games {{'lobby_name' : Game Object}
 
-    client.subscribe("new_game")
-    client.subscribe('games/+/start')
-    client.subscribe('games/+/+/move')
+    client.subscribe("new_game", qos=2)
+    client.subscribe('games/+/start', qos=2)
+    client.subscribe('games/+/+/move', qos=2)
 
     client.loop_forever()
