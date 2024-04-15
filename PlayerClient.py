@@ -8,6 +8,8 @@ import time
 
 game_running = False
 next_move = False
+game_state = None
+game_map = [["None" for i in range(10)] for j in range(10)]
 moves = {
     "W" : "UP",
     "A" : "LEFT",
@@ -64,6 +66,7 @@ def on_message(client, userdata, msg):
     print("message: " + msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
     global game_running
     global next_move
+    global game_state
     if 'Error' in msg.payload.decode():
         next_move = True
         game_running = False
@@ -71,6 +74,7 @@ def on_message(client, userdata, msg):
         game_running = False
     elif msg.topic.endswith('/game_state'):
         next_move = True
+        game_state = json.loads(msg.payload.decode())
     elif msg.topic.endswith('/start') and msg.payload.decode() == 'START':
         game_running = True
 
@@ -106,6 +110,46 @@ def move_prompt():
         option = input("Enter your selection: ").upper()
     return option
     
+def print_map():
+    for i in range(len(game_map)):
+        row = ""
+        for j in range(len(game_map[0])):
+            row += game_map[i][j] + "\t"
+        print(row)
+
+def construct_map(player_name: str):
+    # how far the player can see on the map at any given time
+    vision_radius = 2
+    # get game position info
+    player_pos = game_state["currentPosition"]
+    # calculate coordinates near player
+    player_x, player_y = player_pos[0], player_pos[1]
+    min_x = max(player_x - vision_radius, 0)
+    max_x = min(player_x + vision_radius, 10)
+    min_y = max(player_y - vision_radius, 0)
+    max_y = min(player_y + vision_radius, 10)
+    # reset space near player
+    for x in range(min_x, max_x):
+        for y in range(min_y, max_y):
+            game_map[x][y] = "None"
+    # place players
+    game_map[player_x][player_y] = player_name
+    for i in range(len(game_state["teammatePositions"])):
+         teamate_name = game_state["teammateNames"][i]
+         pos = game_state["teammatePositions"][i]
+         game_map[pos[0]][pos[1]] = teamate_name
+    for pos in game_state["enemyPositions"]:
+         game_map[pos[0]][pos[1]] = "Enemy"
+    # place obstacles
+    for pos in game_state["walls"]:
+        game_map[pos[0]][pos[1]] = "Wall"
+    # place coins
+    for pos in game_state["coin1"]:
+        game_map[pos[0]][pos[1]] = "Coin1"
+    for pos in game_state["coin2"]:
+        game_map[pos[0]][pos[1]] = "Coin2"
+    for pos in game_state["coin3"]:
+        game_map[pos[0]][pos[1]] = "Coin3"
 
 if __name__ == '__main__':
     load_dotenv(dotenv_path='./credentials.env')
@@ -152,18 +196,20 @@ if __name__ == '__main__':
         print("Waiting for game to start...")
         
     while not game_running:
-        time.sleep(1) # Wait for game to start
+        time.sleep(0.5) # Wait for game to start
 
     while True:
         while not next_move:
-            time.sleep(1)
+            time.sleep(0.5)
+        time.sleep(0.5) # Wait for subsequent messages
         if not game_running:
             break
-        time.sleep(1) # Wait for messages to prompt the next move
+        construct_map(player_name)
+        print_map()
         m = move_prompt()
         next_move = False
         client.publish(f"games/{lobby_name}/{player_name}/move", moves[m], qos=2)
-        time.sleep(1)
+        time.sleep(0.5)
         print("Waiting for all players to make a move...")
 
     if creating_lobby:
